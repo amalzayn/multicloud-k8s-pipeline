@@ -31,17 +31,12 @@ pipeline {
         stage('Verify Local Repository') {
             steps {
                 script {
-                    if (!fileExists("${LOCAL_REPO_PATH}/Jenkinsfile")) {
-                        error "Jenkinsfile not found in ${LOCAL_REPO_PATH}"
-                    }
                     echo "Local repository verified at ${LOCAL_REPO_PATH}"
-                    
                     sh """
                         echo "Checking tools..."
-                        which terraform || echo "Terraform not found in PATH"
-                        ${TERRAFORM_PATH} version || echo "Terraform not found at ${TERRAFORM_PATH}"
-                        which gcloud || echo "gcloud not found in PATH"
-                        which kubectl || echo "kubectl not found in PATH"
+                        ${TERRAFORM_PATH} version
+                        ${GCLOUD_PATH} version
+                        ${KUBECTL_PATH} version --client
                     """
                 }
             }
@@ -61,7 +56,6 @@ pipeline {
                     sh """
                         cd ${LOCAL_REPO_PATH}/gke
                         ${TERRAFORM_PATH} init
-                        ${TERRAFORM_PATH} fmt -check || ${TERRAFORM_PATH} fmt
                         ${TERRAFORM_PATH} validate
                         ${TERRAFORM_PATH} plan -out=tfplan-gke
                     """
@@ -95,7 +89,6 @@ pipeline {
                     sh """
                         cd ${LOCAL_REPO_PATH}/eks
                         ${TERRAFORM_PATH} init
-                        ${TERRAFORM_PATH} fmt -check || ${TERRAFORM_PATH} fmt
                         ${TERRAFORM_PATH} validate
                         ${TERRAFORM_PATH} plan -out=tfplan-eks
                     """
@@ -110,3 +103,52 @@ pipeline {
                             cd ${LOCAL_REPO_PATH}/eks
                             ${TERRAFORM_PATH} destroy -auto-approve
                         """
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy Applications') {
+            when {
+                allOf {
+                    expression { params.DEPLOY_APP == true }
+                    expression { params.ACTION == 'APPLY' }
+                }
+            }
+            steps {
+                script {
+                    if (params.CLOUD_PROVIDER == 'GKE' || params.CLOUD_PROVIDER == 'BOTH') {
+                        echo "📦 Deploying app to GKE..."
+                        sh """
+                            ${GCLOUD_PATH} container clusters get-credentials my-cluster --region us-central1
+                            ${KUBECTL_PATH} apply -f ${LOCAL_REPO_PATH}/apps/sample-app/
+                            ${KUBECTL_PATH} get pods
+                            ${KUBECTL_PATH} get services
+                        """
+                    }
+                    
+                    if (params.CLOUD_PROVIDER == 'EKS' || params.CLOUD_PROVIDER == 'BOTH') {
+                        echo "📦 Deploying app to EKS..."
+                        sh """
+                            cd ${LOCAL_REPO_PATH}/eks
+                            CLUSTER_NAME=\$(${TERRAFORM_PATH} output -raw cluster_name)
+                            aws eks update-kubeconfig --name \$CLUSTER_NAME --region us-east-2
+                            ${KUBECTL_PATH} apply -f ${LOCAL_REPO_PATH}/apps/sample-app/
+                            ${KUBECTL_PATH} get pods
+                            ${KUBECTL_PATH} get services
+                        """
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo "✅ Operation completed successfully!"
+        }
+        failure {
+            echo "❌ Operation failed!"
+        }
+    }
+}
