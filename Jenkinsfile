@@ -38,8 +38,8 @@ pipeline {
         stage('Deploy to GKE') {
             when {
                 anyOf {
-                    params.CLOUD_PROVIDER == 'GKE'
-                    params.CLOUD_PROVIDER == 'BOTH'
+                    expression { params.CLOUD_PROVIDER == 'GKE' }
+                    expression { params.CLOUD_PROVIDER == 'BOTH' }
                 }
             }
             steps {
@@ -72,8 +72,8 @@ pipeline {
         stage('Deploy to EKS') {
             when {
                 anyOf {
-                    params.CLOUD_PROVIDER == 'EKS'
-                    params.CLOUD_PROVIDER == 'BOTH'
+                    expression { params.CLOUD_PROVIDER == 'EKS' }
+                    expression { params.CLOUD_PROVIDER == 'BOTH' }
                 }
             }
             steps {
@@ -106,8 +106,8 @@ pipeline {
         stage('Deploy Applications') {
             when {
                 allOf {
-                    params.DEPLOY_APP == true
-                    params.ACTION == 'APPLY'
+                    expression { params.DEPLOY_APP == true }
+                    expression { params.ACTION == 'APPLY' }
                 }
             }
             steps {
