@@ -21,6 +21,9 @@ pipeline {
     
     environment {
         LOCAL_REPO_PATH = "/Users/ftzayn/Desktop/multi-cloud1/projectmain"
+        TERRAFORM_PATH = "/opt/homebrew/bin/terraform"
+        GCLOUD_PATH = "/opt/homebrew/bin/gcloud"
+        PATH = "/opt/homebrew/bin:${env.PATH}"
     }
     
     stages {
@@ -31,6 +34,14 @@ pipeline {
                         error "Jenkinsfile not found in ${LOCAL_REPO_PATH}"
                     }
                     echo "Local repository verified at ${LOCAL_REPO_PATH}"
+                    
+                    // Check if tools are available
+                    sh """
+                        echo "Checking tools..."
+                        which terraform || echo "Terraform not found in PATH"
+                        ${TERRAFORM_PATH} version || echo "Terraform not found at ${TERRAFORM_PATH}"
+                        which gcloud || echo "gcloud not found in PATH"
+                    """
                 }
             }
         }
@@ -48,21 +59,21 @@ pipeline {
                     
                     sh """
                         cd ${LOCAL_REPO_PATH}/gke
-                        terraform init
-                        terraform fmt -check || terraform fmt
-                        terraform validate
-                        terraform plan -out=tfplan-gke
+                        ${TERRAFORM_PATH} init
+                        ${TERRAFORM_PATH} fmt -check || ${TERRAFORM_PATH} fmt
+                        ${TERRAFORM_PATH} validate
+                        ${TERRAFORM_PATH} plan -out=tfplan-gke
                     """
                     
                     if (params.ACTION == 'APPLY') {
                         sh """
                             cd ${LOCAL_REPO_PATH}/gke
-                            terraform apply -auto-approve tfplan-gke
+                            ${TERRAFORM_PATH} apply -auto-approve tfplan-gke
                         """
                     } else if (params.ACTION == 'DESTROY') {
                         sh """
                             cd ${LOCAL_REPO_PATH}/gke
-                            terraform destroy -auto-approve
+                            ${TERRAFORM_PATH} destroy -auto-approve
                         """
                     }
                 }
@@ -82,21 +93,21 @@ pipeline {
                     
                     sh """
                         cd ${LOCAL_REPO_PATH}/eks
-                        terraform init
-                        terraform fmt -check || terraform fmt
-                        terraform validate
-                        terraform plan -out=tfplan-eks
+                        ${TERRAFORM_PATH} init
+                        ${TERRAFORM_PATH} fmt -check || ${TERRAFORM_PATH} fmt
+                        ${TERRAFORM_PATH} validate
+                        ${TERRAFORM_PATH} plan -out=tfplan-eks
                     """
                     
                     if (params.ACTION == 'APPLY') {
                         sh """
                             cd ${LOCAL_REPO_PATH}/eks
-                            terraform apply -auto-approve tfplan-eks
+                            ${TERRAFORM_PATH} apply -auto-approve tfplan-eks
                         """
                     } else if (params.ACTION == 'DESTROY') {
                         sh """
                             cd ${LOCAL_REPO_PATH}/eks
-                            terraform destroy -auto-approve
+                            ${TERRAFORM_PATH} destroy -auto-approve
                         """
                     }
                 }
@@ -115,7 +126,7 @@ pipeline {
                     if (params.CLOUD_PROVIDER == 'GKE' || params.CLOUD_PROVIDER == 'BOTH') {
                         echo "📦 Deploying app to GKE..."
                         sh """
-                            gcloud container clusters get-credentials my-cluster --region us-central1
+                            ${GCLOUD_PATH} container clusters get-credentials my-cluster --region us-central1
                             kubectl apply -f ${LOCAL_REPO_PATH}/apps/sample-app/
                             kubectl get pods
                             kubectl get services
@@ -126,7 +137,7 @@ pipeline {
                         echo "📦 Deploying app to EKS..."
                         sh """
                             cd ${LOCAL_REPO_PATH}/eks
-                            CLUSTER_NAME=\$(terraform output -raw cluster_name)
+                            CLUSTER_NAME=\$(${TERRAFORM_PATH} output -raw cluster_name)
                             aws eks update-kubeconfig --name \$CLUSTER_NAME --region us-east-2
                             kubectl apply -f ${LOCAL_REPO_PATH}/apps/sample-app/
                             kubectl get pods
