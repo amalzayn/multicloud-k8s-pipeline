@@ -20,12 +20,11 @@ pipeline {
     }
     
     environment {
-    LOCAL_REPO_PATH = "/Users/ftzayn/Desktop/multi-cloud1/projectmain"
-    TERRAFORM_PATH = "/opt/homebrew/bin/terraform"
-    GCLOUD_PATH = "/opt/homebrew/bin/gcloud"
-    KUBECTL_PATH = "/usr/local/bin/kubectl"
-    PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
-}
+        LOCAL_REPO_PATH = "/Users/ftzayn/Desktop/multi-cloud1/projectmain"
+        TERRAFORM_PATH = "/opt/homebrew/bin/terraform"
+        GCLOUD_PATH = "/opt/homebrew/bin/gcloud"
+        KUBECTL_PATH = "/usr/local/bin/kubectl"
+        PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
     }
     
     stages {
@@ -37,12 +36,12 @@ pipeline {
                     }
                     echo "Local repository verified at ${LOCAL_REPO_PATH}"
                     
-                    // Check if tools are available
                     sh """
                         echo "Checking tools..."
                         which terraform || echo "Terraform not found in PATH"
                         ${TERRAFORM_PATH} version || echo "Terraform not found at ${TERRAFORM_PATH}"
                         which gcloud || echo "gcloud not found in PATH"
+                        which kubectl || echo "kubectl not found in PATH"
                     """
                 }
             }
@@ -111,52 +110,3 @@ pipeline {
                             cd ${LOCAL_REPO_PATH}/eks
                             ${TERRAFORM_PATH} destroy -auto-approve
                         """
-                    }
-                }
-            }
-        }
-        
-        stage('Deploy Applications') {
-            when {
-                allOf {
-                    expression { params.DEPLOY_APP == true }
-                    expression { params.ACTION == 'APPLY' }
-                }
-            }
-            steps {
-                script {
-                    if (params.CLOUD_PROVIDER == 'GKE' || params.CLOUD_PROVIDER == 'BOTH') {
-                        echo "📦 Deploying app to GKE..."
-                        sh """
-    ${GCLOUD_PATH} container clusters get-credentials my-cluster --region us-central1
-    ${KUBECTL_PATH} apply -f ${LOCAL_REPO_PATH}/apps/sample-app/
-    ${KUBECTL_PATH} get pods
-    ${KUBECTL_PATH} get services
-"""
-                    }
-                    
-                    if (params.CLOUD_PROVIDER == 'EKS' || params.CLOUD_PROVIDER == 'BOTH') {
-                        echo "📦 Deploying app to EKS..."
-                        sh """
-                            cd ${LOCAL_REPO_PATH}/eks
-                            CLUSTER_NAME=\$(${TERRAFORM_PATH} output -raw cluster_name)
-                            aws eks update-kubeconfig --name \$CLUSTER_NAME --region us-east-2
-                            kubectl apply -f ${LOCAL_REPO_PATH}/apps/sample-app/
-                            kubectl get pods
-                            kubectl get services
-                        """
-                    }
-                }
-            }
-        }
-    }
-    
-    post {
-        success {
-            echo "✅ Operation completed successfully!"
-        }
-        failure {
-            echo "❌ Operation failed!"
-        }
-    }
-}
