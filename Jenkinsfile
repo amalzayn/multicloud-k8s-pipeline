@@ -20,10 +20,12 @@ pipeline {
     }
     
     environment {
-        LOCAL_REPO_PATH = "/Users/ftzayn/Desktop/multi-cloud1/projectmain"
-        TERRAFORM_PATH = "/opt/homebrew/bin/terraform"
-        GCLOUD_PATH = "/opt/homebrew/bin/gcloud"
-        PATH = "/opt/homebrew/bin:${env.PATH}"
+    LOCAL_REPO_PATH = "/Users/ftzayn/Desktop/multi-cloud1/projectmain"
+    TERRAFORM_PATH = "/opt/homebrew/bin/terraform"
+    GCLOUD_PATH = "/opt/homebrew/bin/gcloud"
+    KUBECTL_PATH = "/usr/local/bin/kubectl"
+    PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
+}
     }
     
     stages {
@@ -126,11 +128,11 @@ pipeline {
                     if (params.CLOUD_PROVIDER == 'GKE' || params.CLOUD_PROVIDER == 'BOTH') {
                         echo "📦 Deploying app to GKE..."
                         sh """
-                            ${GCLOUD_PATH} container clusters get-credentials my-cluster --region us-central1
-                            kubectl apply -f ${LOCAL_REPO_PATH}/apps/sample-app/
-                            kubectl get pods
-                            kubectl get services
-                        """
+    ${GCLOUD_PATH} container clusters get-credentials my-cluster --region us-central1
+    ${KUBECTL_PATH} apply -f ${LOCAL_REPO_PATH}/apps/sample-app/
+    ${KUBECTL_PATH} get pods
+    ${KUBECTL_PATH} get services
+"""
                     }
                     
                     if (params.CLOUD_PROVIDER == 'EKS' || params.CLOUD_PROVIDER == 'BOTH') {
